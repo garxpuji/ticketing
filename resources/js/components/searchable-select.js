@@ -252,12 +252,15 @@ export class SearchableSelect {
         // Close other open searchable dropdowns
         document.querySelectorAll('.searchable-select-panel:not(.hidden)').forEach(p => {
             p.classList.add('hidden');
+            const otherWrapper = p.closest('.searchable-select-wrapper');
+            if (otherWrapper) otherWrapper.style.zIndex = '';
             const otherBtn = p.parentElement?.querySelector('.searchable-select-btn');
             const otherChev = p.parentElement?.querySelector('.fa-chevron-down');
             if (otherBtn) otherBtn.setAttribute('aria-expanded', 'false');
             if (otherChev) otherChev.style.transform = 'rotate(0deg)';
         });
 
+        this.wrapper.style.zIndex = '60';
         this.panel.classList.remove('hidden');
         this.btn.setAttribute('aria-expanded', 'true');
         this.chevron.style.transform = 'rotate(180deg)';
@@ -268,7 +271,9 @@ export class SearchableSelect {
             const rect = this.wrapper.getBoundingClientRect();
             const panelHeight = 280;
             const spaceBelow = window.innerHeight - rect.bottom;
-            if (spaceBelow < panelHeight && rect.top > panelHeight) {
+            const spaceAbove = rect.top;
+
+            if (spaceBelow < panelHeight && spaceAbove > spaceBelow) {
                 this.panel.classList.remove('top-full', 'mt-1.5');
                 this.panel.classList.add('bottom-full', 'mb-1.5');
             } else {
@@ -294,6 +299,7 @@ export class SearchableSelect {
         this.panel.classList.add('hidden');
         this.btn.setAttribute('aria-expanded', 'false');
         this.chevron.style.transform = 'rotate(0deg)';
+        this.wrapper.style.zIndex = '';
         this.isOpen = false;
         this.focusedOptionIndex = -1;
     }

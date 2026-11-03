@@ -89,7 +89,7 @@
     </div>
 
     <!-- Global Search & Filters Section -->
-    <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm space-y-4 relative overflow-hidden transition-colors">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm space-y-4 relative transition-colors">
         <form action="{{ route('customers.index') }}" method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <!-- Global Search Input -->
             <div class="lg:col-span-2">
