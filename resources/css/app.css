@@ -2,6 +2,7 @@
 @import './maps.css';
 
 @source '../views/**/*.blade.php';
+@source '../js/**/*.js';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
 @custom-variant dark (&:where(.dark, .dark *));

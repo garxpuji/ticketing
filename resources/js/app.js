@@ -3,7 +3,10 @@
  * - Toast Notification System
  * - Interactive Modal Confirmation (Replacing native confirm/alert)
  * - Auto Form Submit Loading State & Double-Click Protection
+ * - Universal Searchable Dropdown (Live Search Combobox)
  */
+
+import { initSearchableSelects } from './components/searchable-select';
 
 // 1. Toast Notification System
 window.showToast = function (message, type = 'success', duration = 3500) {
@@ -143,4 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    // 4. Universal Searchable Dropdowns (Live Search)
+    initSearchableSelects();
 });
