@@ -75,6 +75,7 @@
     <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 rounded-2xl shadow-sm space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4 transition-colors">
         <!-- Status & Server Filter -->
         <div class="flex flex-wrap items-center gap-2.5">
+            @if($user->role !== 'technician')
             <!-- Server Billing Selector -->
             <form method="GET" action="{{ route('odp.index') }}" class="inline-flex items-center">
                 @if(request('status'))
@@ -91,6 +92,7 @@
             </form>
 
             <span class="w-px h-5 bg-slate-200 dark:bg-slate-700 hidden sm:inline-block"></span>
+            @endif
 
             <!-- Status Filter Pills -->
             <div class="flex flex-wrap items-center gap-1.5">
@@ -291,7 +293,9 @@
                                 </a>
                             </div>
                         </th>
+                        @if($user->role !== 'technician')
                         <th class="px-4 py-3">Server Billing</th>
+                        @endif
                         <th class="px-4 py-3">Kapasitas Port</th>
                         <th class="px-4 py-3 text-center">Status</th>
                         <th class="px-4 py-3">Pelanggan Terhubung</th>
@@ -332,6 +336,7 @@
                                 <div class="text-[10px] text-slate-400 truncate max-w-xs"><i class="fa-solid fa-location-dot text-[9px] mr-1"></i>{{ $odp->address }}</div>
                             @endif
                         </td>
+                        @if($user->role !== 'technician')
                         <td class="px-4 py-3">
                             @if(!empty($odp->connected_billing_nodes) && count($odp->connected_billing_nodes) > 0)
                                 <div class="flex flex-wrap gap-1 max-w-xs">
@@ -345,6 +350,7 @@
                                 <span class="text-slate-400 text-[11px]">-</span>
                             @endif
                         </td>
+                        @endif
 
                         <td class="px-4 py-3">
                             <div class="w-36">
@@ -448,7 +454,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="9" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500">
+                        <td colspan="{{ $user->role !== 'technician' ? '9' : '8' }}" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500">
                             <i class="fa-solid fa-network-wired text-3xl mb-2 block opacity-40"></i>
                             <span>Belum ada data ODP yang tersimpan. Klik tombol <strong>Tambah ODP</strong> untuk menambahkan data.</span>
                         </td>
@@ -854,6 +860,7 @@
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
 <script>
+const isTechnician = {{ $user->role === 'technician' ? 'true' : 'false' }};
 let odpMap = null;
 let odpMarkerClusterGroup = null;
 let odpOsmLayer = null;
@@ -995,9 +1002,11 @@ function initOdpMap() {
                     </span>
                 </div>
 
+                ${!isTechnician ? `
                 <div class="text-[10px] text-slate-400 mb-2">
                     <i class="fa-solid fa-server mr-1"></i>Server: <strong class="text-slate-600 dark:text-slate-300">${tenantName}</strong>
                 </div>
+                ` : ''}
 
                 <!-- Port Capacity Bar -->
                 <div class="bg-slate-50 dark:bg-slate-800/80 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 mb-2.5">
@@ -1271,14 +1280,24 @@ function loadOdpPortsData(odpId) {
         document.getElementById('portsModalOdpCode').textContent = odp.code_odp;
         
         let billingSubtitle = '';
-        if (odp.connected_nodes && odp.connected_nodes.length > 0) {
-            billingSubtitle = odp.connected_nodes.map(n => `[${n.tenant_code}] ${n.name}`).join(' • ');
-        } else if (odp.billing_node) {
-            billingSubtitle = `[${odp.billing_node.tenant_code}] ${odp.billing_node.name}`;
-        } else {
-            billingSubtitle = 'Semua Server';
+        if (!isTechnician) {
+            if (odp.connected_nodes && odp.connected_nodes.length > 0) {
+                billingSubtitle = odp.connected_nodes.map(n => `[${n.tenant_code}] ${n.name}`).join(' • ');
+            } else if (odp.billing_node) {
+                billingSubtitle = `[${odp.billing_node.tenant_code}] ${odp.billing_node.name}`;
+            } else {
+                billingSubtitle = 'Semua Server';
+            }
         }
-        document.getElementById('portsModalBilling').textContent = billingSubtitle;
+        const portsModalBilling = document.getElementById('portsModalBilling');
+        if (portsModalBilling) {
+            if (isTechnician) {
+                portsModalBilling.style.display = 'none';
+            } else {
+                portsModalBilling.style.display = '';
+                portsModalBilling.textContent = billingSubtitle;
+            }
+        }
         document.getElementById('portsModalCapacity').textContent = `Terpakai: ${odp.used_ports}/${odp.total_ports} Port`;
 
         renderPortsTable(data.ports, data.can_edit);
@@ -1327,7 +1346,7 @@ function renderPortsTable(ports, canEdit) {
                     <div class="${cIdx > 0 ? 'mt-2 pt-2 border-t border-slate-100 dark:border-slate-800' : ''}">
                         <div class="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
                             <span>${escapeHtml(cust.name)}</span>
-                            ${cust.billing_node ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">[${escapeHtml(cust.billing_node.tenant_code)}]</span>` : ''}
+                            ${(!isTechnician && cust.billing_node) ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">[${escapeHtml(cust.billing_node.tenant_code)}]</span>` : ''}
                             <span class="text-slate-400 font-normal text-[11px]">- ${escapeHtml(cust.package_name || 'Standard')}</span>
                         </div>
                         <div class="text-[10px] text-slate-400 font-mono mt-0.5">
@@ -1416,7 +1435,7 @@ function renderUnassignedCustomers(unassigned, canEdit) {
         const item = document.createElement('div');
         item.className = 'inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700/60 text-[11px] text-slate-800 dark:text-slate-200';
         item.innerHTML = `
-            <span>${c.billing_node ? `<strong class="text-indigo-600 dark:text-indigo-400 font-mono">[${escapeHtml(c.billing_node.tenant_code)}]</strong> ` : ''}<strong>${escapeHtml(c.name)}</strong> (${escapeHtml(c.no_services)})</span>
+            <span>${(!isTechnician && c.billing_node) ? `<strong class="text-indigo-600 dark:text-indigo-400 font-mono">[${escapeHtml(c.billing_node.tenant_code)}]</strong> ` : ''}<strong>${escapeHtml(c.name)}</strong> (${escapeHtml(c.no_services)})</span>
             ${canEdit ? `<button type="button" data-cust-id="${c.id}" data-cust-name="${escapeHtml(c.name)}" onclick="quickAssignUnassigned(this)" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-bold">Pilih Port</button>` : ''}
         `;
         list.appendChild(item);
@@ -1501,7 +1520,7 @@ function searchCustomersForPort(query) {
                 <div>
                     <div class="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
                         <span>${escapeHtml(c.name)}</span>
-                        ${c.billing_node ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">[${escapeHtml(c.billing_node.tenant_code)}]</span>` : ''}
+                        ${(!isTechnician && c.billing_node) ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">[${escapeHtml(c.billing_node.tenant_code)}]</span>` : ''}
                         ${isCurrentlyOnOdp ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-700">Port Saat Ini: ${c.port_number || 'Belum diatur'}</span>` : ''}
                     </div>
                     <div class="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">

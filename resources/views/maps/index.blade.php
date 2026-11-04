@@ -52,6 +52,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3">
             <!-- Left: Searchable Billing Selector & Status Pills -->
             <div class="flex flex-wrap items-center gap-2.5">
+                @if($user->role !== 'technician')
                 <!-- Searchable Billing Instance Combobox -->
                 <div class="relative inline-block text-left" id="billingCombobox">
                     <button type="button" 
@@ -138,6 +139,7 @@
                 </div>
 
                 <span class="w-px h-6 bg-slate-200 dark:bg-slate-700 hidden sm:inline-block"></span>
+                @endif
 
                 <!-- Status Filter Pills -->
                 <div class="flex flex-wrap items-center gap-1.5">
@@ -639,6 +641,7 @@ let isPickingCoordinates = false;
 let pickingClickListener = null;
 
 const canEditCoordinates = {{ in_array($user->role, ['admin', 'operator']) ? 'true' : 'false' }};
+const isTechnician = {{ $user->role === 'technician' ? 'true' : 'false' }};
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
 
 const customerMarkersMap = new Map();

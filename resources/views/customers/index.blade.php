@@ -104,6 +104,7 @@
                 </div>
             </div>
 
+            @if($user->role !== 'technician')
             <!-- Billing Node Origin Filter -->
             <div>
                 <label class="block text-xs font-semibold uppercase text-slate-700 dark:text-slate-300 mb-1.5">
@@ -118,6 +119,7 @@
                     @endforeach
                 </select>
             </div>
+            @endif
 
             <!-- Subscription Status Filter -->
             <div>
@@ -226,7 +228,9 @@
                 <thead class="bg-slate-50/80 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider font-semibold border-b border-slate-200/80 dark:border-slate-800">
                     <tr>
                         <th class="px-4 py-3.5 text-center w-12">No</th>
+                        @if($user->role !== 'technician')
                         <th class="px-4 py-3.5">Billing Origin</th>
+                        @endif
                         <th class="px-4 py-3.5">
                             <div class="inline-flex items-center gap-1.5">
                                 <span>No Layanan</span>
@@ -282,8 +286,9 @@
                                 {{ $customers->firstItem() + $index }}.
                             </td>
                             <!-- Billing Node Identity Badge -->
+                            @if($user->role !== 'technician')
                             <td class="px-4 py-4 whitespace-nowrap">
-                                @if($billing)
+                                @if($user->role !== 'technician' && $billing)
                                     <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40">
                                         <i class="fa-solid fa-server text-[10px]"></i>
                                         <span>[{{ $billing->tenant_code }}] {{ $billing->name }}</span>
@@ -292,6 +297,7 @@
                                     <span class="text-slate-400 dark:text-slate-500">-</span>
                                 @endif
                             </td>
+                            @endif
                             <!-- No Layanan & Jaringan (PPPoE / IP MikroTik) -->
                             <td class="px-4 py-4 whitespace-nowrap">
                                 <span class="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-xs">{{ $customer->no_services }}</span>
@@ -404,7 +410,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
+                            <td colspan="{{ $user->role !== 'technician' ? '9' : '8' }}" class="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
                                 <i class="fa-solid fa-user-slash text-4xl mb-3 block text-slate-300 dark:text-slate-700"></i>
                                 @if(request('search'))
                                     Tidak ditemukan pelanggan dengan kata kunci "<strong class="text-slate-700 dark:text-slate-300">{{ request('search') }}</strong>".
@@ -460,7 +466,7 @@
 
                     <!-- Metadata Tags -->
                     <div class="flex flex-wrap items-center gap-1.5 text-[10px]">
-                        @if($billing)
+                        @if($user->role !== 'technician' && $billing)
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40 font-medium">
                                 <i class="fa-solid fa-server text-[9px]"></i> {{ $billing->name }}
                             </span>
