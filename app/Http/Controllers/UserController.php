@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
+use App\Models\TechnicianGroup;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,7 +27,7 @@ class UserController extends Controller implements HasMiddleware
 
     public function index(Request $request)
     {
-        $query = User::query();
+        $query = User::with('technicianGroup');
 
         if ($request->filled('role')) {
             $query->where('role', $request->role);
@@ -32,6 +35,10 @@ class UserController extends Controller implements HasMiddleware
 
         if ($request->filled('status')) {
             $query->where('is_active', $request->status === 'active');
+        }
+
+        if ($request->filled('technician_group_id')) {
+            $query->where('technician_group_id', $request->technician_group_id);
         }
 
         if ($request->filled('search')) {
@@ -50,32 +57,37 @@ class UserController extends Controller implements HasMiddleware
         $operatorCount = User::where('role', 'operator')->count();
         $technicianCount = User::where('role', 'technician')->count();
 
+        $technicianGroups = TechnicianGroup::where('is_active', true)->orderBy('name')->get();
+
         return view('users.index', compact(
             'users',
             'totalUsers',
             'adminCount',
             'operatorCount',
-            'technicianCount'
+            'technicianCount',
+            'technicianGroups'
         ));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'phone' => 'nullable|string|max:20',
-            'role' => 'required|in:admin,operator,technician',
-            'password' => 'required|string|min:8',
+            'name'                => 'required|string|max:255',
+            'email'               => 'required|email|unique:users,email',
+            'phone'               => 'nullable|string|max:20',
+            'role'                => 'required|in:admin,operator,technician',
+            'technician_group_id' => 'nullable|exists:technician_groups,id',
+            'password'            => 'required|string|min:8',
         ]);
 
         User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'phone' => $validated['phone'],
-            'role' => $validated['role'],
-            'password' => Hash::make($validated['password']),
-            'is_active' => true,
+            'name'                => $validated['name'],
+            'email'               => $validated['email'],
+            'phone'               => $validated['phone'] ?? null,
+            'role'                => $validated['role'],
+            'technician_group_id' => $validated['role'] === 'technician' ? ($validated['technician_group_id'] ?? null) : null,
+            'password'            => Hash::make($validated['password']),
+            'is_active'           => true,
         ]);
 
         return back()->with('success', 'User baru berhasil ditambahkan.');
@@ -86,12 +98,13 @@ class UserController extends Controller implements HasMiddleware
         $user = User::findOrFail($id);
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
-            'phone' => 'nullable|string|max:20',
-            'role' => 'required|in:admin,operator,technician',
-            'is_active' => 'required|boolean',
-            'password' => 'nullable|string|min:8',
+            'name'                => 'required|string|max:255',
+            'email'               => ['required', 'email', Rule::unique('users')->ignore($user->id)],
+            'phone'               => 'nullable|string|max:20',
+            'role'                => 'required|in:admin,operator,technician',
+            'technician_group_id' => 'nullable|exists:technician_groups,id',
+            'is_active'           => 'required|boolean',
+            'password'            => 'nullable|string|min:8',
         ]);
 
         // Prevent logged-in administrator from locking themselves out
@@ -105,11 +118,12 @@ class UserController extends Controller implements HasMiddleware
         }
 
         $updateData = [
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'phone' => $validated['phone'],
-            'role' => $validated['role'],
-            'is_active' => $validated['is_active'],
+            'name'                => $validated['name'],
+            'email'               => $validated['email'],
+            'phone'               => $validated['phone'] ?? null,
+            'role'                => $validated['role'],
+            'technician_group_id' => $validated['role'] === 'technician' ? ($validated['technician_group_id'] ?? null) : null,
+            'is_active'           => $validated['is_active'],
         ];
 
         if (!empty($validated['password'])) {

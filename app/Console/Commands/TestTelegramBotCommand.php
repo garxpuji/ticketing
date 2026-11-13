@@ -2,15 +2,19 @@
 
 namespace App\Console\Commands;
 
+use App\Models\TechnicianGroup;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
 class TestTelegramBotCommand extends Command
 {
-    protected $signature = 'telegram:test {--chat_id= : Custom Chat ID to send test message to}';
+    protected $signature = 'telegram:test 
+                            {--chat_id= : Custom Chat ID to send test message to}
+                            {--topic_id= : Custom Topic ID / Thread ID for forum supergroups}
+                            {--group= : Technician Group ID or Code to test (e.g. 1 or "TEAM MTC 1")}';
 
-    protected $description = 'Uji koneksi, periksa token bot (getMe), dan kirim pesan uji coba ke grup Telegram';
+    protected $description = 'Uji koneksi bot, verifikasi token, dan kirim pesan uji coba ke grup Telegram atau grup teknisi';
 
     public function handle(): int
     {
@@ -21,13 +25,41 @@ class TestTelegramBotCommand extends Command
         $this->newLine();
 
         $botToken = config('services.telegram.bot_token') ?: env('TELEGRAM_BOT_TOKEN');
-        $chatId   = $this->option('chat_id') ?: (config('services.telegram.chat_id') ?: env('TELEGRAM_GROUP_CHAT_ID'));
+        $chatId   = $this->option('chat_id');
+        $topicId  = $this->option('topic_id');
+        $targetGroupName = 'Global Fallback Group';
+
+        // Check if testing a specific technician group
+        if ($this->option('group')) {
+            $groupQuery = $this->option('group');
+            $group = TechnicianGroup::where('id', $groupQuery)
+                ->orWhere('code', $groupQuery)
+                ->orWhere('name', $groupQuery)
+                ->first();
+
+            if (!$group) {
+                $this->error("[-] Grup Teknisi '{$groupQuery}' tidak ditemukan di database.");
+                return self::FAILURE;
+            }
+
+            $chatId = $group->telegram_chat_id;
+            $topicId = $group->telegram_topic_id;
+            $targetGroupName = "{$group->name} ({$group->code})";
+
+            $this->line("<fg=cyan>[*] Menguji Grup Teknisi: {$targetGroupName}</>");
+        }
+
+        if (empty($chatId)) {
+            $chatId = config('services.telegram.chat_id') ?: env('TELEGRAM_GROUP_CHAT_ID');
+        }
 
         $this->table(
             ['Parameter', 'Status / Nilai'],
             [
                 ['TELEGRAM_BOT_TOKEN', !empty($botToken) ? substr($botToken, 0, 10) . '...' . substr($botToken, -5) : '<fg=red>Belum Diatur</>'],
-                ['TELEGRAM_GROUP_CHAT_ID', !empty($chatId) ? $chatId : '<fg=red>Belum Diatur</>'],
+                ['TARGET GROUP / NAMA', $targetGroupName],
+                ['TELEGRAM CHAT ID', !empty($chatId) ? $chatId : '<fg=red>Belum Diatur</>'],
+                ['TELEGRAM TOPIC ID', !empty($topicId) ? "#{$topicId}" : '<fg=gray>None</>'],
             ]
         );
 
@@ -60,32 +92,37 @@ class TestTelegramBotCommand extends Command
 
         if (empty($chatId)) {
             $this->newLine();
-            $this->warn('[!] TELEGRAM_GROUP_CHAT_ID belum diatur di .env');
-            $this->line('    Tips: Tambahkan bot Anda ke dalam grup Telegram, jadikan admin, lalu ambil ID grup (biasanya berawalan -100...)');
+            $this->warn('[!] Chat ID belum diatur. Gunakan --chat_id= atau --group=');
             return self::SUCCESS;
         }
 
         $this->newLine();
-        $this->line("<fg=yellow>2. Mengirim pesan uji coba ke chat ID: {$chatId}...</>");
+        $this->line("<fg=yellow>2. Mengirim pesan uji coba ke: {$chatId} (Target: {$targetGroupName})...</>");
 
         try {
             $timeNow = now()->setTimezone('Asia/Jakarta')->format('d-m-Y H:i:s') . ' WIB';
+            $safeGroupName = htmlspecialchars($targetGroupName, ENT_QUOTES, 'UTF-8');
             $testMsg = "🤖 <b>PENGUJIAN KONEKSI BOT TELEGRAM</b>\n"
                      . "━━━━━━━━━━━━━━━━━━━━\n"
-                     . "✅ Bot Telegram Central Ticket System berhasil terhubung!\n"
+                     . "✅ Bot berhasil terhubung ke: <b>{$safeGroupName}</b>\n"
                      . "🕒 Waktu Uji: <code>{$timeNow}</code>\n"
-                     . "🚀 Notifikasi update tiket, penugasan teknisi, dan tiket selesai siap diproses.";
+                     . "🚀 Notifikasi tiket siap dialokasikan ke grup teknisi ini.";
 
-            $sendRes = Http::withoutVerifying()->timeout(5)->asJson()->post("https://api.telegram.org/bot{$botToken}/sendMessage", [
+            $payload = [
                 'chat_id'    => $chatId,
                 'text'       => $testMsg,
                 'parse_mode' => 'HTML',
-            ]);
+            ];
 
+            if (!empty($topicId)) {
+                $payload['message_thread_id'] = (int) $topicId;
+            }
+
+            $sendRes = Http::withoutVerifying()->timeout(6)->asJson()->post("https://api.telegram.org/bot{$botToken}/sendMessage", $payload);
             $sendData = $sendRes->json();
 
             if ($sendRes->successful() && !empty($sendData['ok'])) {
-                $this->info("[+] Pesan uji coba BERHASIL terkirim ke grup!");
+                $this->info("[+] Pesan uji coba BERHASIL terkirim ke target!");
                 $this->newLine();
                 $this->info('========================================================');
                 $this->info('  SEMUA PENGUJIAN BOT TELEGRAM BERJALAN DENGAN SUKSES   ');
@@ -96,9 +133,9 @@ class TestTelegramBotCommand extends Command
                 $this->error('    Respon API: ' . ($sendData['description'] ?? $sendRes->body()));
                 $this->newLine();
                 $this->warn('Petunjuk Perbaikan:');
-                $this->line('1. Pastikan bot sudah di-invite / dimasukkan ke dalam grup Telegram.');
-                $this->line('2. Pastikan bot diberi izin (permission) untuk mengirim pesan / admin di grup.');
-                $this->line('3. Jika grup berjenis supergroup, chat ID umumnya memiliki awalan -100 (misal: -1001234567890).');
+                $this->line('1. Pastikan bot sudah di-invite / dimasukkan ke dalam grup Telegram target.');
+                $this->line('2. Pastikan bot diberi izin (permission) untuk mengirim pesan di grup.');
+                $this->line('3. Jika grup berjenis supergroup, chat ID umumnya memiliki awalan -100.');
                 return self::FAILURE;
             }
         } catch (Throwable $e) {

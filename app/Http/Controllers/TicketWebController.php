@@ -12,6 +12,7 @@ use App\Jobs\DispatchBillingWebhookJob;
 use App\Jobs\SendTicketTelegramNotificationJob;
 use App\Models\BillingInstance;
 use App\Models\Customer;
+use App\Models\TechnicianGroup;
 use App\Models\Ticket;
 use App\Models\TicketTimeline;
 use App\Models\User;
@@ -36,7 +37,7 @@ class TicketWebController extends Controller
     {
         $user = Auth::user();
 
-        $query = Ticket::with(['billingInstance', 'assignedTechnician']);
+        $query = Ticket::with(['billingInstance', 'assignedTechnician.technicianGroup', 'technicianGroup']);
 
         // Role scoping: technician only sees assigned tickets
         if ($user->role === UserRole::Technician->value) {
@@ -47,6 +48,9 @@ class TicketWebController extends Controller
             }
             if ($request->filled('technician_id')) {
                 $query->where('assigned_technician_id', $request->technician_id);
+            }
+            if ($request->filled('technician_group_id')) {
+                $query->where('technician_group_id', $request->technician_group_id);
             }
         }
 
@@ -77,7 +81,8 @@ class TicketWebController extends Controller
         $totalCount = (clone $baseCountQuery)->count();
 
         $tenants = BillingInstance::where('is_active', true)->withCount('customers')->get();
-        $technicians = User::where('role', UserRole::Technician->value)->where('is_active', true)->get();
+        $technicians = User::where('role', UserRole::Technician->value)->where('is_active', true)->with('technicianGroup')->get();
+        $technicianGroups = TechnicianGroup::where('is_active', true)->orderBy('name')->get();
         $totalCustomersCount = Customer::count();
 
         return view('tickets.index', compact(
@@ -89,6 +94,7 @@ class TicketWebController extends Controller
             'totalCount',
             'tenants',
             'technicians',
+            'technicianGroups',
             'totalCustomersCount'
         ));
     }
@@ -119,6 +125,7 @@ class TicketWebController extends Controller
                 'longitude' => $validated['longitude'] ?? null,
                 'category_name' => $validated['category_name'] ?? null,
                 'problem_description' => $validated['problem_description'],
+                'technician_group_id' => $validated['technician_group_id'] ?? null,
                 'status' => TicketStatus::Pending->value,
                 'created_by_name' => $user->name,
                 'created_by_role' => $user->role,
@@ -155,8 +162,8 @@ class TicketWebController extends Controller
             ], $ticket->id);
         }
 
-        // Kirim Notifikasi ke Grup Telegram secara langsung
-        SendTicketTelegramNotificationJob::dispatchSync($ticket, 'ticket_created', $ticket->problem_description, $user);
+        // Kirim Notifikasi ke Grup Telegram secara asinkron setelah response
+        SendTicketTelegramNotificationJob::dispatchAfterResponse($ticket, 'ticket_created', $ticket->problem_description, $user);
 
         return back()->with('success', "Tiket {$ticketNumber} berhasil dibuat dan disinkronkan ke billing.");
     }
@@ -168,7 +175,7 @@ class TicketWebController extends Controller
     {
         $user = Auth::user();
 
-        $ticket = Ticket::with(['billingInstance', 'assignedTechnician', 'timelines.user'])
+        $ticket = Ticket::with(['billingInstance', 'assignedTechnician.technicianGroup', 'technicianGroup', 'timelines.user'])
             ->findOrFail($id);
 
         // Security check for technician role
@@ -176,9 +183,10 @@ class TicketWebController extends Controller
             abort(403, 'Anda tidak memiliki akses ke tiket ini.');
         }
 
-        $technicians = User::where('role', UserRole::Technician->value)->where('is_active', true)->get();
+        $technicians = User::where('role', UserRole::Technician->value)->where('is_active', true)->with('technicianGroup')->get();
+        $technicianGroups = TechnicianGroup::where('is_active', true)->orderBy('name')->get();
 
-        return view('tickets.show', compact('ticket', 'user', 'technicians'));
+        return view('tickets.show', compact('ticket', 'user', 'technicians', 'technicianGroups'));
     }
 
     /**
@@ -193,7 +201,8 @@ class TicketWebController extends Controller
         }
 
         $request->validate([
-            'technician_id' => 'required|exists:users,id',
+            'technician_id'       => 'required|exists:users,id',
+            'technician_group_id' => 'nullable|exists:technician_groups,id',
         ]);
 
         $ticket = Ticket::findOrFail($id);
@@ -202,14 +211,25 @@ class TicketWebController extends Controller
             return back()->with('error', 'Tiket ini telah berstatus Selesai (Closed) dan terkunci. Penugasan teknisi tidak dapat diubah lagi.');
         }
 
-        $technician = User::findOrFail($request->technician_id);
+        $technician = User::with('technicianGroup')->findOrFail($request->technician_id);
         $deviceInfo = $this->getClientDeviceInfo($request);
-        $remark = "Ditugaskan ke teknisi: {$technician->name} dari {$deviceInfo}";
 
-        DB::transaction(function () use ($ticket, $technician, $user, $remark) {
-            $ticket->update([
+        // Resolve group
+        $assignedGroupId = $request->technician_group_id ?: $technician->technician_group_id;
+        $groupName = $technician->technicianGroup?->name;
+        $groupInfo = $groupName ? " [{$groupName}]" : '';
+        $remark = "Ditugaskan ke teknisi: {$technician->name}{$groupInfo} dari {$deviceInfo}";
+
+        DB::transaction(function () use ($ticket, $technician, $assignedGroupId, $user, $remark) {
+            $updateData = [
                 'assigned_technician_id' => $technician->id,
-            ]);
+            ];
+
+            if ($assignedGroupId) {
+                $updateData['technician_group_id'] = $assignedGroupId;
+            }
+
+            $ticket->update($updateData);
 
             TicketTimeline::create([
                 'ticket_id' => $ticket->id,
@@ -233,8 +253,8 @@ class TicketWebController extends Controller
             ]);
         }
 
-        // Kirim Notifikasi ke Grup Telegram secara langsung
-        SendTicketTelegramNotificationJob::dispatchSync($ticket, 'technician_assigned', $remark, $user);
+        // Kirim Notifikasi ke Grup Telegram secara asinkron setelah response
+        SendTicketTelegramNotificationJob::dispatchAfterResponse($ticket, 'technician_assigned', $remark, $user);
 
         return back()->with('success', "Tiket berhasil ditugaskan ke Teknisi {$technician->name}.");
     }
@@ -287,8 +307,8 @@ class TicketWebController extends Controller
             ]);
         }
 
-        // Kirim Notifikasi ke Grup Telegram secara langsung
-        SendTicketTelegramNotificationJob::dispatchSync($ticket, 'status_updated', $validated['remark'], $user);
+        // Kirim Notifikasi ke Grup Telegram secara asinkron setelah response
+        SendTicketTelegramNotificationJob::dispatchAfterResponse($ticket, 'status_updated', $validated['remark'], $user);
 
         return back()->with('success', 'Status tiket berhasil diperbarui & disinkronkan ke billing.');
     }

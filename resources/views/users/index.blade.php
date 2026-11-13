@@ -131,6 +131,13 @@
                             <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40 uppercase tracking-wider">
                                 <i class="fa-solid fa-screwdriver-wrench mr-1"></i> Teknisi
                             </span>
+                            @if($user->technicianGroup)
+                            <div class="mt-1">
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                    <i class="fa-solid fa-users text-[9px] text-emerald-500"></i> {{ $user->technicianGroup->name }}
+                                </span>
+                            </div>
+                            @endif
                             @endif
                         </td>
                         <td class="py-4 px-5">
@@ -153,6 +160,7 @@
                                     data-email="{{ $user->email }}"
                                     data-phone="{{ $user->phone ?? '' }}"
                                     data-role="{{ $user->role }}"
+                                    data-group-id="{{ $user->technician_group_id ?? '' }}"
                                     data-active="{{ $user->is_active ? '1' : '0' }}"
                                     class="min-h-[34px] min-w-[34px] p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:bg-emerald-950/40 rounded-lg transition border border-transparent hover:border-emerald-200 dark:hover:border-emerald-800/40 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-400"
                                     title="Edit User">
@@ -241,6 +249,7 @@
                             data-email="{{ $user->email }}"
                             data-phone="{{ $user->phone ?? '' }}"
                             data-role="{{ $user->role }}"
+                            data-group-id="{{ $user->technician_group_id ?? '' }}"
                             data-active="{{ $user->is_active ? '1' : '0' }}"
                             class="min-h-[38px] px-3 py-1.5 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded-xl transition border border-emerald-200 dark:border-emerald-800/50 flex items-center justify-center gap-1.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-400"
                             title="Edit User">
@@ -312,6 +321,17 @@
             </div>
 
             <div>
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Grup Teknisi (Khusus Teknisi)</label>
+                <select name="technician_group_id" class="w-full min-h-[42px] bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-400/30">
+                    <option value="">-- Belum Masuk Grup (Independen) --</option>
+                    @foreach($technicianGroups as $tg)
+                    <option value="{{ $tg->id }}">{{ $tg->name }} ({{ $tg->code }})</option>
+                    @endforeach
+                </select>
+                <span class="text-[10px] text-slate-400 mt-1 block">Notifikasi tiket teknisi ini akan masuk ke grup Telegram tim yang dipilih.</span>
+            </div>
+
+            <div>
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Password</label>
                 <input type="password" name="password" required minlength="6" class="w-full min-h-[42px] bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-400/30">
             </div>
@@ -372,6 +392,16 @@
             </div>
 
             <div>
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Grup Teknisi (Khusus Teknisi)</label>
+                <select name="technician_group_id" id="edit_technician_group_id" class="w-full min-h-[42px] bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-400/30">
+                    <option value="">-- Belum Masuk Grup (Independen) --</option>
+                    @foreach($technicianGroups as $tg)
+                    <option value="{{ $tg->id }}">{{ $tg->name }} ({{ $tg->code }})</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Ganti Password (Opsional)</label>
                 <input type="password" name="password" placeholder="Kosongkan jika tidak diubah" minlength="6" class="w-full min-h-[42px] bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-400/30">
             </div>
@@ -406,6 +436,7 @@
         const email = button.dataset.email;
         const phone = button.dataset.phone;
         const role = button.dataset.role;
+        const groupId = button.dataset.groupId;
         const isActive = button.dataset.active;
 
         document.getElementById('editForm').action = "/users/" + id;
@@ -413,6 +444,7 @@
         document.getElementById('edit_email').value = email;
         document.getElementById('edit_phone').value = phone || '';
         document.getElementById('edit_role').value = role;
+        document.getElementById('edit_technician_group_id').value = groupId || '';
         document.getElementById('edit_is_active').value = isActive;
 
         document.getElementById('editModal').classList.remove('hidden');

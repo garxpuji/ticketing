@@ -55,8 +55,8 @@ class TicketApiController extends Controller
             return $ticket;
         });
 
-        // Dispatch Telegram Notification secara langsung
-        SendTicketTelegramNotificationJob::dispatchSync($ticket, 'ticket_created', $ticket->problem_description, null);
+        // Dispatch Telegram Notification secara asinkron setelah response
+        SendTicketTelegramNotificationJob::dispatchAfterResponse($ticket, 'ticket_created', $ticket->problem_description, null);
 
         return response()->json([
             'success' => true,

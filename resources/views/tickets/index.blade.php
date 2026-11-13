@@ -129,6 +129,19 @@
                     @endforeach
                 </select>
             </div>
+
+            <!-- Technician Group Filter -->
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-400 mb-1.5">Grup Teknisi</label>
+                <select name="technician_group_id" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 min-h-[40px] transition-all">
+                    <option value="">Semua Grup</option>
+                    @foreach($technicianGroups as $tg)
+                    <option value="{{ $tg->id }}" {{ request('technician_group_id') == $tg->id ? 'selected' : '' }}>
+                        {{ $tg->name }} ({{ $tg->code }})
+                    </option>
+                    @endforeach
+                </select>
+            </div>
             @endif
 
             <div class="col-span-full flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -270,8 +283,20 @@
                             @if($ticket->assignedTechnician)
                             <div class="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
                                 <i class="fa-solid fa-user-gear text-emerald-500 text-[10px]"></i>
-                                <span>{{ $ticket->assignedTechnician->name }}</span>
+                                <span class="font-medium">{{ $ticket->assignedTechnician->name }}</span>
                             </div>
+                            @php $tGroup = $ticket->technicianGroup ?? $ticket->assignedTechnician->technicianGroup; @endphp
+                            @if($tGroup)
+                            <div class="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 flex items-center gap-1">
+                                <i class="fa-solid fa-users text-slate-400 text-[9px]"></i> {{ $tGroup->name }}
+                            </div>
+                            @endif
+                            @elseif($ticket->technicianGroup)
+                            <div class="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                                <i class="fa-solid fa-users text-sky-500 text-[10px]"></i>
+                                <span class="font-medium">{{ $ticket->technicianGroup->name }}</span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 italic">Belum ada personil</div>
                             @else
                             <span class="text-slate-400 italic">Belum ditugaskan</span>
                             @endif
@@ -451,6 +476,19 @@
                     <input type="text" name="category_name" value="{{ old('category_name') }}" placeholder="Contoh: Kabel FO Putus"
                         class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
                 </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">Grup Teknisi (Tujuan Notifikasi Telegram)</label>
+                <select name="technician_group_id" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                    <option value="">-- Fallback ke Global / Sesuai Penugasan Teknisi --</option>
+                    @foreach($technicianGroups as $tg)
+                    <option value="{{ $tg->id }}" {{ old('technician_group_id') == $tg->id ? 'selected' : '' }}>
+                        {{ $tg->name }} ({{ $tg->code }})
+                    </option>
+                    @endforeach
+                </select>
+                <span class="text-[10px] text-slate-400 mt-0.5 block">Notifikasi tiket ini akan otomatis dikirim ke grup Telegram tim yang dipilih.</span>
             </div>
 
             <div>

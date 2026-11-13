@@ -72,6 +72,13 @@ Route::middleware('auth')->group(function () {
         Route::put('/users/{id}', [UserController::class, 'update'])->name('users.update');
         Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
 
+        // Technician Groups Management & Telegram Bot Routing
+        Route::get('/technician-groups', [\App\Http\Controllers\TechnicianGroupController::class, 'index'])->name('technician-groups.index');
+        Route::post('/technician-groups', [\App\Http\Controllers\TechnicianGroupController::class, 'store'])->name('technician-groups.store');
+        Route::put('/technician-groups/{id}', [\App\Http\Controllers\TechnicianGroupController::class, 'update'])->name('technician-groups.update');
+        Route::delete('/technician-groups/{id}', [\App\Http\Controllers\TechnicianGroupController::class, 'destroy'])->name('technician-groups.destroy');
+        Route::post('/technician-groups/{id}/test-telegram', [\App\Http\Controllers\TechnicianGroupController::class, 'testTelegram'])->name('technician-groups.test-telegram');
+
         // Database Backup Routes
         Route::get('/backups', [\App\Http\Controllers\BackupController::class, 'index'])->name('backups.index');
         Route::post('/backups', [\App\Http\Controllers\BackupController::class, 'create'])->name('backups.create')->middleware('throttle:5,1');

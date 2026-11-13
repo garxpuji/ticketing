@@ -172,11 +172,33 @@
                         <div class="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 mt-1 font-medium">
                             <i class="fa-solid fa-phone text-[10px]"></i> {{ $ticket->assignedTechnician->phone ?? '-' }}
                         </div>
+                        @php $showGroup = $ticket->technicianGroup ?? $ticket->assignedTechnician->technicianGroup; @endphp
+                        @if($showGroup)
+                        <div class="mt-2 pt-2 border-t border-emerald-200/50 dark:border-emerald-800/50 flex items-center justify-between text-xs">
+                            <span class="text-slate-500 dark:text-slate-400 text-[11px]">Tim / Grup:</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-200">{{ $showGroup->name }} ({{ $showGroup->code }})</span>
+                        </div>
+                        @if($showGroup->telegram_chat_id)
+                        <div class="text-[10px] text-sky-600 dark:text-sky-400 flex items-center gap-1 mt-1 font-mono">
+                            <i class="fa-brands fa-telegram"></i> <span>Grup Telegram: <code>{{ $showGroup->telegram_chat_id }}</code></span>
+                        </div>
+                        @endif
+                        @endif
+                    </div>
+                @elseif($ticket->technicianGroup)
+                    <div class="p-4 rounded-xl bg-sky-50/60 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/60">
+                        <div class="text-sm font-extrabold text-slate-900 dark:text-white">{{ $ticket->technicianGroup->name }} ({{ $ticket->technicianGroup->code }})</div>
+                        <div class="text-xs text-sky-700 dark:text-sky-400 mt-1">Grup teralokasi (Personil teknisi belum dipilih)</div>
+                        @if($ticket->technicianGroup->telegram_chat_id)
+                        <div class="text-[10px] text-sky-600 dark:text-sky-400 flex items-center gap-1 mt-1.5 font-mono">
+                            <i class="fa-brands fa-telegram"></i> <span>Grup Telegram: <code>{{ $ticket->technicianGroup->telegram_chat_id }}</code></span>
+                        </div>
+                        @endif
                     </div>
                 @else
                     <div class="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 text-xs font-medium flex items-center gap-2">
                         <i class="fa-solid fa-triangle-exclamation text-amber-600 text-sm"></i>
-                        <span>Belum ditugaskan ke teknisi.</span>
+                        <span>Belum ditugaskan ke teknisi atau grup.</span>
                     </div>
                 @endif
 
@@ -189,7 +211,7 @@
                             <option value="">-- Pilih Teknisi --</option>
                             @foreach($technicians as $tech)
                                 <option value="{{ $tech->id }}" {{ $ticket->assigned_technician_id == $tech->id ? 'selected' : '' }}>
-                                    {{ $tech->name }} ({{ $tech->phone ?? 'Tanpa WA' }})
+                                    {{ $tech->name }} @if($tech->technicianGroup) [{{ $tech->technicianGroup->name }}] @endif ({{ $tech->phone ?? 'Tanpa WA' }})
                                 </option>
                             @endforeach
                         </select>

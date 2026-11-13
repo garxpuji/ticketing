@@ -26,6 +26,7 @@ class Ticket extends Model
         'picture',
         'status',
         'assigned_technician_id',
+        'technician_group_id',
         'created_by_name',
         'created_by_role',
     ];
@@ -38,6 +39,11 @@ class Ticket extends Model
     public function assignedTechnician(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_technician_id');
+    }
+
+    public function technicianGroup(): BelongsTo
+    {
+        return $this->belongsTo(TechnicianGroup::class, 'technician_group_id');
     }
 
     public function timelines(): HasMany

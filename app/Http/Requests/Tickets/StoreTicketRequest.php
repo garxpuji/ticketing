@@ -28,6 +28,7 @@ class StoreTicketRequest extends FormRequest
             'latitude'            => ['nullable', 'string', 'max:50'],
             'longitude'           => ['nullable', 'string', 'max:50'],
             'category_name'       => ['nullable', 'string', 'max:100'],
+            'technician_group_id' => ['nullable', 'exists:technician_groups,id'],
             'problem_description' => ['required', 'string'],
             'picture'             => ['nullable', 'string'],
             'created_by_name'     => ['nullable', 'string', 'max:100'],

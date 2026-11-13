@@ -1,28 +1,83 @@
-*.log
-.DS_Store
+# Environment & Secret Keys
 .env
 .env.backup
 .env.production
-.phpactor.json
-.phpunit.result.cache
-/.codex
-/.cursor/
-/.idea
-/.nova
-/.phpunit.cache
-/.vscode
-/.zed
-/auth.json
+.env.*.local
+.env.*
+auth.json
+*.pem
+*.key
+/storage/*.key
+
+# PHP & Composer
+/vendor
+composer.phar
+
+# Node & Frontend Build
 /node_modules
 /public/build
-/public/fonts-manifest.dev.json
 /public/hot
 /public/storage
-/storage/*.key
+/public/fonts-manifest.dev.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Framework Caches & Storage
+/bootstrap/cache/*
+!/bootstrap/cache/.gitignore
+/storage/framework/cache/data/*
+!/storage/framework/cache/data/.gitignore
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitignore
+/storage/framework/testing/*
+!/storage/framework/testing/.gitignore
+/storage/framework/views/*
+!/storage/framework/views/.gitignore
+/storage/logs/*
+!/storage/logs/.gitignore
 /storage/pail
-/vendor
+
+# Database Backups & SQLite
+/storage/app/backups/*
+!/storage/app/backups/.gitignore
+/storage/app/private/*
+!/storage/app/private/.gitignore
+/storage/app/public/*
+!/storage/app/public/.gitignore
+*.sql
+*.sql.gz
+*.dump
+*.sqlite
+*.sqlite-journal
+
+# General Logs
+*.log
+
+# Unit Tests & Cache
+.phpunit.result.cache
+/.phpunit.cache
+
+# IDEs, OS & Editor Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+*.swp
+*~
+/.idea
+/.vscode
+/.fleet
+/.zed
+/.nova
+/.cursor/
+/.codex
+/.agent
+.phpactor.json
+.phpintel
 _ide_helper.php
+_ide_helper_models.php
+
+# Local VM / Dev
 Homestead.json
 Homestead.yaml
-Thumbs.db
-/.agent
