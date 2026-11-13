@@ -73,6 +73,9 @@ desktop.ini
 /.cursor/
 /.codex
 /.agent
+/.agents
+/scratch
+/antislop.md
 .phpactor.json
 .phpintel
 _ide_helper.php
