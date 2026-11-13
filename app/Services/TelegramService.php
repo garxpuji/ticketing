@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Enums\TicketStatus;
 use App\Models\Ticket;
 use App\Models\User;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -15,11 +16,13 @@ class TelegramService
 {
     protected ?string $botToken;
     protected ?string $chatId;
+    protected string $baseUrl;
 
     public function __construct()
     {
         $this->botToken = config('services.telegram.bot_token');
         $this->chatId   = config('services.telegram.chat_id');
+        $this->baseUrl  = rtrim((string) config('services.telegram.base_url', 'https://api.telegram.org'), '/');
     }
 
     /**
@@ -28,6 +31,38 @@ class TelegramService
     public function isConfigured(): bool
     {
         return !empty($this->botToken);
+    }
+
+    /**
+     * Build standard HTTP client with IPv4 preference, SSL verification, and optional proxy.
+     */
+    protected function buildHttpClient(int $timeout = 6): PendingRequest
+    {
+        $verifySsl = (bool) config('services.telegram.verify_ssl', true);
+        $forceIpv4 = (bool) config('services.telegram.force_ipv4', true);
+        $proxy     = config('services.telegram.proxy');
+
+        $options = [
+            'timeout' => $timeout,
+        ];
+
+        if ($forceIpv4 && defined('CURLOPT_IPRESOLVE') && defined('CURL_IPRESOLVE_V4')) {
+            $options['curl'] = [
+                CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+            ];
+        }
+
+        if (!empty($proxy)) {
+            $options['proxy'] = $proxy;
+        }
+
+        $client = Http::withOptions($options);
+
+        if (!$verifySsl) {
+            $client = $client->withoutVerifying();
+        }
+
+        return $client;
     }
 
     /**
@@ -47,8 +82,7 @@ class TelegramService
         }
 
         try {
-            $url = "https://api.telegram.org/bot{$this->botToken}/sendMessage";
-            $verifySsl = (bool) config('services.telegram.verify_ssl', true);
+            $url = "{$this->baseUrl}/bot{$this->botToken}/sendMessage";
 
             $payload = [
                 'chat_id'                  => $chatId,
@@ -61,8 +95,7 @@ class TelegramService
                 $payload['message_thread_id'] = (int) $targetTopicId;
             }
 
-            $client = $verifySsl ? Http::timeout(6) : Http::withoutVerifying()->timeout(6);
-            $response = $client->asJson()->post($url, $payload);
+            $response = $this->buildHttpClient(6)->asJson()->post($url, $payload);
 
             if ($response->successful()) {
                 return true;
@@ -92,8 +125,7 @@ class TelegramService
         }
 
         try {
-            $url = "https://api.telegram.org/bot{$this->botToken}/sendMessage";
-            $verifySsl = (bool) config('services.telegram.verify_ssl', true);
+            $url = "{$this->baseUrl}/bot{$this->botToken}/sendMessage";
 
             $safeGroupName = htmlspecialchars($groupName, ENT_QUOTES, 'UTF-8');
             $timeNow = now()->setTimezone('Asia/Jakarta')->format('d-m-Y H:i:s') . ' WIB';
@@ -109,8 +141,7 @@ class TelegramService
                 $payload['message_thread_id'] = (int) $topicId;
             }
 
-            $client = $verifySsl ? Http::timeout(8) : Http::withoutVerifying()->timeout(8);
-            $response = $client->asJson()->post($url, $payload);
+            $response = $this->buildHttpClient(8)->asJson()->post($url, $payload);
 
             if ($response->successful()) {
                 return [
@@ -126,9 +157,10 @@ class TelegramService
                 'message' => "Gagal kirim (HTTP {$response->status()}): {$description}",
             ];
         } catch (Throwable $e) {
+            $sanitized = $this->botToken ? str_replace($this->botToken, '***MASKED***', $e->getMessage()) : $e->getMessage();
             return [
                 'success' => false,
-                'message' => 'Exception: ' . $e->getMessage(),
+                'message' => 'Exception: ' . $sanitized,
             ];
         }
     }

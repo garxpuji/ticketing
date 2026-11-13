@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\TechnicianGroup;
 use Illuminate\Console\Command;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
@@ -16,6 +17,35 @@ class TestTelegramBotCommand extends Command
 
     protected $description = 'Uji koneksi bot, verifikasi token, dan kirim pesan uji coba ke grup Telegram atau grup teknisi';
 
+    protected function buildHttpClient(int $timeout = 8): PendingRequest
+    {
+        $verifySsl = (bool) (config('services.telegram.verify_ssl') ?? env('TELEGRAM_VERIFY_SSL', true));
+        $forceIpv4 = (bool) (config('services.telegram.force_ipv4') ?? env('TELEGRAM_FORCE_IPV4', true));
+        $proxy     = config('services.telegram.proxy') ?: env('TELEGRAM_PROXY');
+
+        $options = [
+            'timeout' => $timeout,
+        ];
+
+        if ($forceIpv4 && defined('CURLOPT_IPRESOLVE') && defined('CURL_IPRESOLVE_V4')) {
+            $options['curl'] = [
+                CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+            ];
+        }
+
+        if (!empty($proxy)) {
+            $options['proxy'] = $proxy;
+        }
+
+        $client = Http::withOptions($options);
+
+        if (!$verifySsl) {
+            $client = $client->withoutVerifying();
+        }
+
+        return $client;
+    }
+
     public function handle(): int
     {
         $this->newLine();
@@ -24,9 +54,10 @@ class TestTelegramBotCommand extends Command
         $this->info('========================================================');
         $this->newLine();
 
-        $botToken = config('services.telegram.bot_token') ?: env('TELEGRAM_BOT_TOKEN');
-        $chatId   = $this->option('chat_id');
-        $topicId  = $this->option('topic_id');
+        $botToken  = config('services.telegram.bot_token') ?: env('TELEGRAM_BOT_TOKEN');
+        $baseUrl   = rtrim((string) (config('services.telegram.base_url') ?: env('TELEGRAM_API_BASE_URL', 'https://api.telegram.org')), '/');
+        $chatId    = $this->option('chat_id');
+        $topicId   = $this->option('topic_id');
         $targetGroupName = 'Global Fallback Group';
 
         // Check if testing a specific technician group
@@ -57,6 +88,7 @@ class TestTelegramBotCommand extends Command
             ['Parameter', 'Status / Nilai'],
             [
                 ['TELEGRAM_BOT_TOKEN', !empty($botToken) ? substr($botToken, 0, 10) . '...' . substr($botToken, -5) : '<fg=red>Belum Diatur</>'],
+                ['TELEGRAM_BASE_URL', $baseUrl],
                 ['TARGET GROUP / NAMA', $targetGroupName],
                 ['TELEGRAM CHAT ID', !empty($chatId) ? $chatId : '<fg=red>Belum Diatur</>'],
                 ['TELEGRAM TOPIC ID', !empty($topicId) ? "#{$topicId}" : '<fg=gray>None</>'],
@@ -74,7 +106,7 @@ class TestTelegramBotCommand extends Command
         $this->line('<fg=yellow>1. Memeriksa identitas bot via getMe...</>');
 
         try {
-            $res = Http::withoutVerifying()->timeout(5)->get("https://api.telegram.org/bot{$botToken}/getMe");
+            $res = $this->buildHttpClient(6)->get("{$baseUrl}/bot{$botToken}/getMe");
             $data = $res->json();
 
             if (!$res->successful() || empty($data['ok'])) {
@@ -86,7 +118,8 @@ class TestTelegramBotCommand extends Command
             $botUser = $data['result'];
             $this->info("[+] Bot Valid! Nama: {$botUser['first_name']} | Username: @{$botUser['username']} (ID: {$botUser['id']})");
         } catch (Throwable $e) {
-            $this->error("[-] Gagal menghubungi API Telegram: {$e->getMessage()}");
+            $sanitized = $botToken ? str_replace($botToken, '***MASKED***', $e->getMessage()) : $e->getMessage();
+            $this->error("[-] Gagal menghubungi API Telegram: {$sanitized}");
             return self::FAILURE;
         }
 
@@ -118,7 +151,7 @@ class TestTelegramBotCommand extends Command
                 $payload['message_thread_id'] = (int) $topicId;
             }
 
-            $sendRes = Http::withoutVerifying()->timeout(6)->asJson()->post("https://api.telegram.org/bot{$botToken}/sendMessage", $payload);
+            $sendRes = $this->buildHttpClient(8)->asJson()->post("{$baseUrl}/bot{$botToken}/sendMessage", $payload);
             $sendData = $sendRes->json();
 
             if ($sendRes->successful() && !empty($sendData['ok'])) {
@@ -139,7 +172,8 @@ class TestTelegramBotCommand extends Command
                 return self::FAILURE;
             }
         } catch (Throwable $e) {
-            $this->error("[-] Exception saat mengirim pesan: {$e->getMessage()}");
+            $sanitized = $botToken ? str_replace($botToken, '***MASKED***', $e->getMessage()) : $e->getMessage();
+            $this->error("[-] Exception saat mengirim pesan: {$sanitized}");
             return self::FAILURE;
         }
     }

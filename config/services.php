@@ -36,9 +36,12 @@ return [
     ],
 
     'telegram' => [
-        'bot_token'  => env('TELEGRAM_BOT_TOKEN'),
-        'chat_id'    => env('TELEGRAM_GROUP_CHAT_ID'),
-        'verify_ssl' => env('TELEGRAM_VERIFY_SSL', true),
+        'bot_token'   => env('TELEGRAM_BOT_TOKEN'),
+        'chat_id'     => env('TELEGRAM_GROUP_CHAT_ID'),
+        'verify_ssl'  => env('TELEGRAM_VERIFY_SSL', true),
+        'force_ipv4'  => env('TELEGRAM_FORCE_IPV4', true),
+        'base_url'    => env('TELEGRAM_API_BASE_URL', 'https://api.telegram.org'),
+        'proxy'       => env('TELEGRAM_PROXY', null),
     ],
 
 ];
